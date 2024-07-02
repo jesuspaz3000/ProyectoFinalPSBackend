@@ -1,4 +1,4 @@
-#include "BTree.h"
+#include "btree.h"
 #include <iostream>
 
 using namespace std;

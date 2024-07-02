@@ -1,12 +1,19 @@
-// backend/index.js
 const express = require('express');
 const cors = require('cors');
 const { execFile } = require('child_process');
 const bodyParser = require('body-parser');
+const os = require('os');
+const path = require('path');
 const app = express();
 const port = 8000;
 
-const executablePath = '../cmake/build/Debug/arbolb.exe';
+// Determinar el sistema operativo y configurar la ruta del ejecutable
+let executablePath;
+if (os.platform() === 'win32') {
+    executablePath = path.join(__dirname, '../cmake/build/Debug/arbolb.exe');
+} else {
+    executablePath = path.join(__dirname, '../cmake/build/arbolb');
+}
 
 app.use(cors()); // Habilitar CORS
 app.use(bodyParser.json());
