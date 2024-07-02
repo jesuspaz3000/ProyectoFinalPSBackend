@@ -1,0 +1,12 @@
+# Ignorar dependencias de Node.js
+/nodejs/node_modules/
+
+# Ignorar archivos de construcción de CMake
+/cmake/build/
+
+# Ignorar archivos temporales y de sistema
+*.log
+*.tmp
+*.swp
+*.bak
+.DS_Store
