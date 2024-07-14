@@ -1,6 +1,5 @@
 # Ignorar dependencias de Node.js
 /nodejs/node_modules/
-/nodejs/btree_data.json
 
 # Ignorar archivos de construcción de CMake
 /cmake/build/
@@ -11,3 +10,4 @@
 *.swp
 *.bak
 .DS_Store
+nodejs/btree_data.json
