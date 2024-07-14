@@ -1,5 +1,6 @@
 # Ignorar dependencias de Node.js
 /nodejs/node_modules/
+/btree_data.json
 
 # Ignorar archivos de construcción de CMake
 /cmake/build/

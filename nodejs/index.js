@@ -6,17 +6,32 @@ const os = require('os');
 const path = require('path');
 const app = express();
 const port = 8000;
+const host = '0.0.0.0';  // Escuchar en todas las interfaces de red
 
 // Determinar el sistema operativo y configurar la ruta del ejecutable
 let executablePath;
 if (os.platform() === 'win32') {
     executablePath = path.join(__dirname, '../cmake/build/Debug/arbolb.exe');
 } else {
-    executablePath = path.join(__dirname, '../cmake/build/arbolb');
+    executablePath = path.join(__dirname, '../ArbolbQT/build/Desktop-Debug/ArbolbQT');
 }
 
 app.use(cors()); // Habilitar CORS
 app.use(bodyParser.json());
+
+app.post('/init', (req, res) => {
+    const degree = req.body.degree;
+    console.log(`Initializing BTree with degree: ${degree}`);
+    execFile(executablePath, ['init', degree.toString()], (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Error: ${stderr}`);
+            res.status(500).json({ message: '', error: stderr });
+            return;
+        }
+        console.log(`Result: ${stdout}`);
+        res.json({ message: `Initialized BTree with degree ${degree}` });
+    });
+});
 
 app.post('/insert', (req, res) => {
     const word = req.body.word;
@@ -28,7 +43,7 @@ app.post('/insert', (req, res) => {
             return;
         }
         console.log(`Result: ${stdout}`);
-        res.json({ message: `Inserted: ${word}`, error: stderr.trim() });
+        res.json(JSON.parse(stdout));
     });
 });
 
@@ -41,9 +56,9 @@ app.post('/search', (req, res) => {
             res.status(500).json({ message: '', error: stderr });
             return;
         }
-        const found = stdout.includes("Found");
+        const result = JSON.parse(stdout);
         console.log(`Result: ${stdout}`);
-        res.json({ message: found ? `Found: ${word}` : `Not Found: ${word}`, error: stderr.trim() });
+        res.json(result);
     });
 });
 
@@ -57,7 +72,7 @@ app.post('/delete', (req, res) => {
             return;
         }
         console.log(`Result: ${stdout}`);
-        res.json({ message: stdout.trim(), error: stderr.trim() });
+        res.json(JSON.parse(stdout));
     });
 });
 
@@ -69,12 +84,15 @@ app.get('/traverse', (req, res) => {
             res.status(500).json({ keys: [], error: stderr });
             return;
         }
-        console.log(`Result: ${stdout}`);
-        const keys = stdout.trim().split(/\s+/);
-        res.json({ keys, error: stderr.trim() });
+        if (stdout.trim() === "") {
+            res.json({ keys: [] });
+        } else {
+            console.log(`Result: ${stdout}`);
+            res.json(JSON.parse(stdout));
+        }
     });
 });
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}/`);
+app.listen(port, host, () => {
+    console.log(`Server running at http://${host}:${port}/`);
 });
