@@ -10,7 +10,7 @@ const port = 8000;
 
 let executablePath;
 if (os.platform() === 'win32') {
-    executablePath = path.join(__dirname, '../cmake/build/Debug/arbolb.exe');
+    executablePath = path.join(__dirname, '../ArbolbQT/build/Desktop_Qt_6_8_0_MinGW_64_bit-Debug/debug/ArbolbQT.exe');
 } else {
     executablePath = path.join(__dirname, '../ArbolbQT/build/Desktop-Debug/ArbolbQT');
 }
@@ -43,14 +43,16 @@ function executeCommand(command, args) {
 
 app.post('/init', async (req, res) => {
     const degree = req.body.degree;
-    if (degree == null) {
-        return res.status(400).json({ message: 'Grado no proporcionado', error: 'Bad Request' });
+    console.log('Received init request with body:', req.body);
+    if (typeof degree !== 'number' || degree < 2) {
+        return res.status(400).json({ message: 'Grado no proporcionado o inválido', error: 'Bad Request' });
     }
     try {
         console.log(`Initializing B-Tree with degree: ${degree}`);
         const result = await executeCommand('init', [degree.toString()]);
+        console.log('Command execution result:', result);
         const treeStructure = await getTreeStructure();
-        console.log('Initialization successful, tree structure:', treeStructure);
+        console.log('Tree structure after initialization:', treeStructure);
         res.json({ tree: treeStructure, message: 'Árbol B inicializado correctamente' });
     } catch (error) {
         console.error(`Error during initialization: ${error.message}`);
@@ -61,8 +63,8 @@ app.post('/init', async (req, res) => {
 app.post('/insert', async (req, res) => {
     const number = req.body.number;
     console.log('Received insert request with body:', req.body);
-    if (number == null) {
-        return res.status(400).json({ message: 'Número no proporcionado', error: 'Bad Request' });
+    if (typeof number !== 'number') {
+        return res.status(400).json({ message: 'Número no proporcionado o inválido', error: 'Bad Request' });
     }
     try {
         console.log(`Attempting to insert number: ${number}`);
@@ -78,8 +80,9 @@ app.post('/insert', async (req, res) => {
 
 app.post('/search', async (req, res) => {
     const number = req.body.number;
-    if (number == null) {
-        return res.status(400).json({ message: 'Número no proporcionado', error: 'Bad Request' });
+    console.log('Received search request with body:', req.body);
+    if (typeof number !== 'number') {
+        return res.status(400).json({ message: 'Número no proporcionado o inválido', error: 'Bad Request' });
     }
     try {
         console.log(`Searching for number: ${number}`);
@@ -94,8 +97,9 @@ app.post('/search', async (req, res) => {
 
 app.post('/delete', async (req, res) => {
     const number = req.body.number;
-    if (number == null) {
-        return res.status(400).json({ message: 'Número no proporcionado', error: 'Bad Request' });
+    console.log('Received delete request with body:', req.body);
+    if (typeof number !== 'number') {
+        return res.status(400).json({ message: 'Número no proporcionado o inválido', error: 'Bad Request' });
     }
     try {
         console.log(`Attempting to delete number: ${number}`);
@@ -143,6 +147,6 @@ async function getTreeStructure() {
     }
 }
 
-app.listen(port, () => {
-    console.log(`Server running at http://0.0.0.0:${port}/`);
+app.listen(port, 'localhost', () => {
+    console.log(`Server running at http://localhost:${port}/`);
 });
