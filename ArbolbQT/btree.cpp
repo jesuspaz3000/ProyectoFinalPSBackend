@@ -1,162 +1,26 @@
 #include "btree.h"
-#include <iostream>
+#include <QVector>
 
-using namespace std;
-
-BTreeNode::BTreeNode(int t1, bool leaf1) {
-    t = t1;
-    leaf = leaf1;
-
-    keys = new string[2 * t - 1];
-    C = new BTreeNode *[2 * t];
-
-    n = 0;
+BTreeNode::BTreeNode(bool leaf, int t) {
+    this->leaf = leaf;
+    this->t = t;
+    this->n = 0;
+    this->keys.resize(2*t - 1);
+    this->children.resize(2*t);
 }
 
-void BTreeNode::traverse(QJsonArray &keys) {
-    int i;
-    for (i = 0; i < n; i++) {
-        if (!leaf) {
-            C[i]->traverse(keys);
-        }
-        keys.append(QString::fromStdString(this->keys[i]));
-    }
-
-    if (!leaf) {
-        C[i]->traverse(keys);
-    }
-}
-
-BTreeNode* BTreeNode::search(const string &k) {
-    int i = 0;
-    while (i < n && k > keys[i]) {
-        i++;
-    }
-
-    if (keys[i] == k) {
-        return this;
-    }
-
-    if (leaf) {
-        return nullptr;
-    }
-
-    return C[i]->search(k);
-}
-
-int BTreeNode::findKey(const string &k) {
+int BTreeNode::findKey(int key) {
     int idx = 0;
-    while (idx < n && keys[idx] < k) {
-        ++idx;
+    while (idx < n && keys[idx] < key) {
+        idx++;
     }
     return idx;
 }
 
-void BTree::insert(const string &k) {
-    if (root == nullptr) {
-        root = new BTreeNode(t, true);
-        root->keys[0] = k;
-        root->n = 1;
-    } else {
-        if (root->n == 2 * t - 1) {
-            BTreeNode *s = new BTreeNode(t, false);
-            s->C[0] = root;
-            s->splitChild(0, root);
+void BTreeNode::remove(int key) {
+    int idx = findKey(key);
 
-            int i = 0;
-            if (s->keys[0] < k) {
-                i++;
-            }
-            s->C[i]->insertNonFull(k);
-
-            root = s;
-        } else {
-            root->insertNonFull(k);
-        }
-    }
-}
-
-void BTreeNode::insertNonFull(const string &k) {
-    int i = n - 1;
-
-    if (leaf) {
-        while (i >= 0 && keys[i] > k) {
-            keys[i + 1] = keys[i];
-            i--;
-        }
-
-        keys[i + 1] = k;
-        n = n + 1;
-    } else {
-        while (i >= 0 && keys[i] > k) {
-            i--;
-        }
-
-        if (C[i + 1]->n == 2 * t - 1) {
-            splitChild(i + 1, C[i + 1]);
-
-            if (keys[i + 1] < k) {
-                i++;
-            }
-        }
-        C[i + 1]->insertNonFull(k);
-    }
-}
-
-void BTreeNode::splitChild(int i, BTreeNode *y) {
-    BTreeNode *z = new BTreeNode(y->t, y->leaf);
-    z->n = t - 1;
-
-    for (int j = 0; j < t - 1; j++) {
-        z->keys[j] = y->keys[j + t];
-    }
-
-    if (!y->leaf) {
-        for (int j = 0; j < t; j++) {
-            z->C[j] = y->C[j + t];
-        }
-    }
-
-    y->n = t - 1;
-
-    for (int j = n; j >= i + 1; j--) {
-        C[j + 1] = C[j];
-    }
-
-    C[i + 1] = z;
-
-    for (int j = n - 1; j >= i; j--) {
-        keys[j + 1] = keys[j];
-    }
-
-    keys[i] = y->keys[t - 1];
-
-    n = n + 1;
-}
-
-void BTree::remove(const string &k) {
-    if (!root) {
-        cout << "El arbol esta vacio\n";
-        return;
-    }
-
-    root->remove(k);
-
-    if (root->n == 0) {
-        BTreeNode *tmp = root;
-        if (root->leaf) {
-            root = nullptr;
-        } else {
-            root = root->C[0];
-        }
-        delete tmp;
-    }
-}
-
-void BTreeNode::remove(const string &k) {
-    int idx = findKey(k);
-
-    if (idx < n && keys[idx] == k) {
+    if (idx < n && keys[idx] == key) {
         if (leaf) {
             removeFromLeaf(idx);
         } else {
@@ -164,20 +28,20 @@ void BTreeNode::remove(const string &k) {
         }
     } else {
         if (leaf) {
-            cout << "La clave " << k << " no esta en el arbol\n";
+            cout << "La clave " << key << " no existe en el árbol.\n";
             return;
         }
 
         bool flag = (idx == n);
 
-        if (C[idx]->n < t) {
+        if (children[idx]->n < t) {
             fill(idx);
         }
 
         if (flag && idx > n) {
-            C[idx - 1]->remove(k);
+            children[idx-1]->remove(key);
         } else {
-            C[idx]->remove(k);
+            children[idx]->remove(key);
         }
     }
 }
@@ -186,47 +50,46 @@ void BTreeNode::removeFromLeaf(int idx) {
     for (int i = idx + 1; i < n; ++i) {
         keys[i - 1] = keys[i];
     }
-
     n--;
 }
 
 void BTreeNode::removeFromNonLeaf(int idx) {
-    string k = keys[idx];
+    int k = keys[idx];
 
-    if (C[idx]->n >= t) {
-        string pred = getPred(idx);
+    if (children[idx]->n >= t) {
+        int pred = getPred(idx);
         keys[idx] = pred;
-        C[idx]->remove(pred);
-    } else if (C[idx + 1]->n >= t) {
-        string succ = getSucc(idx);
+        children[idx]->remove(pred);
+    } else if (children[idx + 1]->n >= t) {
+        int succ = getSucc(idx);
         keys[idx] = succ;
-        C[idx + 1]->remove(succ);
+        children[idx + 1]->remove(succ);
     } else {
         merge(idx);
-        C[idx]->remove(k);
+        children[idx]->remove(k);
     }
 }
 
-string BTreeNode::getPred(int idx) {
-    BTreeNode *cur = C[idx];
+int BTreeNode::getPred(int idx) {
+    BTreeNode* cur = children[idx];
     while (!cur->leaf) {
-        cur = cur->C[cur->n];
+        cur = cur->children[cur->n];
     }
     return cur->keys[cur->n - 1];
 }
 
-string BTreeNode::getSucc(int idx) {
-    BTreeNode *cur = C[idx + 1];
+int BTreeNode::getSucc(int idx) {
+    BTreeNode* cur = children[idx + 1];
     while (!cur->leaf) {
-        cur = cur->C[0];
+        cur = cur->children[0];
     }
     return cur->keys[0];
 }
 
 void BTreeNode::fill(int idx) {
-    if (idx != 0 && C[idx - 1]->n >= t) {
+    if (idx != 0 && children[idx - 1]->n >= t) {
         borrowFromPrev(idx);
-    } else if (idx != n && C[idx + 1]->n >= t) {
+    } else if (idx != n && children[idx + 1]->n >= t) {
         borrowFromNext(idx);
     } else {
         if (idx != n) {
@@ -238,8 +101,8 @@ void BTreeNode::fill(int idx) {
 }
 
 void BTreeNode::borrowFromPrev(int idx) {
-    BTreeNode *child = C[idx];
-    BTreeNode *sibling = C[idx - 1];
+    BTreeNode* child = children[idx];
+    BTreeNode* sibling = children[idx - 1];
 
     for (int i = child->n - 1; i >= 0; --i) {
         child->keys[i + 1] = child->keys[i];
@@ -247,14 +110,14 @@ void BTreeNode::borrowFromPrev(int idx) {
 
     if (!child->leaf) {
         for (int i = child->n; i >= 0; --i) {
-            child->C[i + 1] = child->C[i];
+            child->children[i + 1] = child->children[i];
         }
     }
 
     child->keys[0] = keys[idx - 1];
 
-    if (!leaf) {
-        child->C[0] = sibling->C[sibling->n];
+    if (!child->leaf) {
+        child->children[0] = sibling->children[sibling->n];
     }
 
     keys[idx - 1] = sibling->keys[sibling->n - 1];
@@ -264,13 +127,13 @@ void BTreeNode::borrowFromPrev(int idx) {
 }
 
 void BTreeNode::borrowFromNext(int idx) {
-    BTreeNode *child = C[idx];
-    BTreeNode *sibling = C[idx + 1];
+    BTreeNode* child = children[idx];
+    BTreeNode* sibling = children[idx + 1];
 
-    child->keys[child->n] = keys[idx];
+    child->keys[(child->n)] = keys[idx];
 
     if (!(child->leaf)) {
-        child->C[child->n + 1] = sibling->C[0];
+        child->children[(child->n) + 1] = sibling->children[0];
     }
 
     keys[idx] = sibling->keys[0];
@@ -281,7 +144,7 @@ void BTreeNode::borrowFromNext(int idx) {
 
     if (!sibling->leaf) {
         for (int i = 1; i <= sibling->n; ++i) {
-            sibling->C[i - 1] = sibling->C[i];
+            sibling->children[i - 1] = sibling->children[i];
         }
     }
 
@@ -290,8 +153,8 @@ void BTreeNode::borrowFromNext(int idx) {
 }
 
 void BTreeNode::merge(int idx) {
-    BTreeNode *child = C[idx];
-    BTreeNode *sibling = C[idx + 1];
+    BTreeNode* child = children[idx];
+    BTreeNode* sibling = children[idx + 1];
 
     child->keys[t - 1] = keys[idx];
 
@@ -301,7 +164,7 @@ void BTreeNode::merge(int idx) {
 
     if (!child->leaf) {
         for (int i = 0; i <= sibling->n; ++i) {
-            child->C[i + t] = sibling->C[i];
+            child->children[i + t] = sibling->children[i];
         }
     }
 
@@ -310,7 +173,7 @@ void BTreeNode::merge(int idx) {
     }
 
     for (int i = idx + 2; i <= n; ++i) {
-        C[i - 1] = C[i];
+        children[i - 1] = children[i];
     }
 
     child->n += sibling->n + 1;
@@ -319,12 +182,196 @@ void BTreeNode::merge(int idx) {
     delete sibling;
 }
 
-void BTree::traverse(QJsonArray &keys) {
-    if (root != nullptr) {
-        root->traverse(keys);
+void BTreeNode::insertNonFull(int key) {
+    int i = n - 1;
+
+    if (leaf) {
+        while (i >= 0 && keys[i] > key) {
+            keys[i + 1] = keys[i];
+            i--;
+        }
+        keys[i + 1] = key;
+        n++;
+    } else {
+        while (i >= 0 && keys[i] > key) {
+            i--;
+        }
+        if (children[i + 1]->n == 2 * t - 1) {
+            splitChild(i + 1, children[i + 1]);
+            if (keys[i + 1] < key) {
+                i++;
+            }
+        }
+        children[i + 1]->insertNonFull(key);
     }
 }
 
-BTreeNode* BTree::search(const string &k) {
-    return (root == nullptr) ? nullptr : root->search(k);
+void BTreeNode::splitChild(int i, BTreeNode* y) {
+    BTreeNode* z = new BTreeNode(y->leaf, y->t);
+    z->n = t - 1;
+
+    for (int j = 0; j < t - 1; j++) {
+        z->keys[j] = y->keys[j + t];
+    }
+
+    if (!y->leaf) {
+        for (int j = 0; j < t; j++) {
+            z->children[j] = y->children[j + t];
+        }
+    }
+
+    y->n = t - 1;
+
+    for (int j = n; j >= i + 1; j--) {
+        children[j + 1] = children[j];
+    }
+
+    children[i + 1] = z;
+
+    for (int j = n - 1; j >= i; j--) {
+        keys[j + 1] = keys[j];
+    }
+
+    keys[i] = y->keys[t - 1];
+
+    n++;
+}
+
+void BTreeNode::traverse() {
+    int i;
+    for (i = 0; i < n; i++) {
+        if (!leaf) {
+            children[i]->traverse();
+        }
+        cout << " " << keys[i];
+    }
+    if (!leaf) {
+        children[i]->traverse();
+    }
+}
+
+BTreeNode* BTreeNode::search(int key) {
+    int i = 0;
+    while (i < n && key > keys[i]) {
+        i++;
+    }
+
+    if (keys[i] == key) {
+        return this;
+    }
+
+    if (leaf) {
+        return nullptr;
+    }
+
+    return children[i]->search(key);
+}
+
+void BTreeNode::inorderTraversal(QVector<int>& result) const {
+    int i;
+    for (i = 0; i < n; i++) {
+        if (!leaf) children[i]->inorderTraversal(result);
+        result.push_back(keys[i]);
+    }
+    if (!leaf) children[i]->inorderTraversal(result);
+}
+
+BTree::BTree(int t) {
+    root = nullptr;
+    this->t = t;
+}
+
+void BTree::traverse() {
+    if (root != nullptr) {
+        root->traverse();
+    }
+}
+
+BTreeNode* BTree::search(int key) {
+    return (root == nullptr) ? nullptr : root->search(key);
+}
+
+void BTree::insert(int key) {
+    if (root == nullptr) {
+        root = new BTreeNode(true, t);
+        root->keys[0] = key;
+        root->n = 1;
+    } else {
+        if (root->n == 2 * t - 1) {
+            BTreeNode* s = new BTreeNode(false, t);
+            s->children[0] = root;
+            s->splitChild(0, root);
+
+            int i = 0;
+            if (s->keys[0] < key) {
+                i++;
+            }
+            s->children[i]->insertNonFull(key);
+            root = s;
+        } else {
+            root->insertNonFull(key);
+        }
+    }
+}
+
+void BTree::remove(int key) {
+    if (!root) {
+        cout << "El árbol está vacío\n";
+        return;
+    }
+
+    root->remove(key);
+
+    if (root->n == 0) {
+        BTreeNode* tmp = root;
+        if (root->leaf) {
+            root = nullptr;
+        } else {
+            root = root->children[0];
+        }
+        delete tmp;
+    }
+}
+
+void BTree::imprimirArbol() const {
+    if (root == nullptr) {
+        cout << "Árbol vacío" << endl;
+        return;
+    }
+
+    cout << "Árbol B de orden " << t << ":" << endl;
+    int h = altura();
+    for (int i = 0; i < h; i++) {
+        imprimirNivel(root, i, 0);
+        cout << endl;
+    }
+}
+
+void BTree::imprimirNivel(BTreeNode* nodo, int nivel, int indent) const {
+    if (nodo == nullptr) return;
+
+    if (nivel == 0) {
+        cout << string(indent, ' ') << "|";
+        for (int i = 0; i < nodo->n; i++) {
+            cout << nodo->keys[i] << "|";
+        }
+    } else {
+        for (int i = 0; i <= nodo->n; i++) {
+            imprimirNivel(nodo->children[i], nivel - 1, indent + 4);
+        }
+    }
+}
+
+int BTree::altura() const {
+    return alturaRecursiva(root);
+}
+
+int BTree::alturaRecursiva(BTreeNode* nodo) const {
+    if (nodo == nullptr) return 0;
+    if (nodo->leaf) return 1;
+    return 1 + alturaRecursiva(nodo->children[0]);
+}
+
+void BTree::inorderTraversal(QVector<int>& result) const {
+    if (root) root->inorderTraversal(result);
 }
