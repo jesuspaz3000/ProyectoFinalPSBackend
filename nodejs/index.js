@@ -120,7 +120,11 @@ app.get('/get_structure', async (req, res) => {
         res.json(treeStructure);
     } catch (error) {
         console.error(`Error retrieving tree structure: ${error.message}`);
-        res.status(500).json({ message: 'Error al obtener la estructura del árbol', error: error.message });
+        if (error.code === 'ENOENT') {
+            res.status(404).json({ message: 'El árbol aún no ha sido inicializado', error: 'Not Found' });
+        } else {
+            res.status(500).json({ message: 'Error al obtener la estructura del árbol', error: error.message });
+        }
     }
 });
 
@@ -139,9 +143,14 @@ app.get('/traverse', async (req, res) => {
 async function getTreeStructure() {
     const jsonFilePath = path.join(__dirname, 'btree_data.json');
     try {
+        await fs.access(jsonFilePath);
         const data = await fs.readFile(jsonFilePath, 'utf8');
         return JSON.parse(data);
     } catch (error) {
+        if (error.code === 'ENOENT') {
+            console.log('Tree structure file not found. Tree may not be initialized yet.');
+            return { message: 'El árbol aún no ha sido inicializado' };
+        }
         console.error(`Error reading or parsing JSON file: ${error.message}`);
         throw error;
     }
